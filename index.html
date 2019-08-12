@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        table {
+            font-family: arial, sans-serif;
+            border-collapse: collapse;
+            width: 50%;
+        }
+
+        td,
+        th {
+            border: 1px solid #dddddd;
+            text-align: center;
+            padding: 5px;
+        }
+
+        tr:nth-child(even) {
+            background-color: #dddddd;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Load data from .txt file</h2>
+
+    <table class="employees">
+        <tr>
+            <th>Employee ID #1</th>
+            <th>Employee ID #2</th>
+            <th>Project ID</th>
+            <th>Days worked</th>
+        </tr>
+    </table>
+    <input type="file" id="fileInput">
+</body>
+
+<script>
+    const tableEmployees = document.querySelector(".employees");
+    const fileInput = document.querySelector('#fileInput');
+    let employees = [];
+
+    fileInput.addEventListener('change', (e) => {
+        const file = fileInput.files[0];
+        const textType = /text.*/;
+
+        if (file.type.match(textType)) {
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                const content = reader.result;
+                console.log(content);
+                if (!e.target.result.includes(", ")) {
+                    console.log("Incorrect data format");
+                    return;
+                }
+                if (e.target.result.includes("\n")) {
+                    let splitContentArr = content.split('\n');
+                    for (let i = 0; i < splitContentArr.length; i++) {
+                        let empId = parseInt(splitContentArr[i].split(', ')[0]);
+                        let projId = parseInt(splitContentArr[i].split(', ')[1]);
+                        let startDate = splitContentArr[i].split(', ')[2];
+                        let endDate = splitContentArr[i].split(', ')[3];
+                        if (startDate.trim() === "NULL".trim()) {
+                            startDate = new Date();
+                        }
+                        if (endDate.trim() == "NULL".trim()) {
+                            endDate = new Date();
+                        }
+                        employees.push({
+                            empId: empId,
+                            projectId: projId,
+                            dateFrom: new Date(startDate),
+                            dateTo: new Date(endDate)
+                        })
+                    }
+                } else {
+                    let splitContentArr = content.split(', ');
+                    let empId = parseInt(splitContentArr[0]);
+                    let projId = parseInt(splitContentArr[1]);
+                    let startDate = splitContentArr[2];
+                    let endDate = splitContentArr[3];
+                    if (startDate.trim() === "NULL".trim()) {
+                        startDate = new Date();
+                    }
+                    if (endDate.trim() == "NULL".trim()) {
+                        endDate = new Date();
+                    }
+                    employees.push({
+                        empId: empId,
+                        projectId: projId,
+                        dateFrom: new Date(startDate),
+                        dateTo: new Date(endDate)
+                    })
+                }
+
+                //console.log(employees);
+                let tableData = findMaxProjPeriod(employees);
+                if (tableData.length) {
+                    tableEmployees.innerHTML += tableData.map((item) => {
+                        return `
+                        <tr>
+                            <td>${ item.empId1}</td>
+                            <td>${ item.empId2}</td>
+                            <td>${ item.projId}</td>
+                            <td>${ item.daysWorked}</td>
+                        </tr>
+                    `
+                    }).join('');
+                } else {
+                    console.log("No available matching records");
+                }
+            }
+
+            reader.readAsText(file);
+        } else {
+            //fileDisplayArea.innerText = "File not supported!"
+            alert("File not supported!")
+        }
+    });
+
+    function findMaxProjPeriod(empObjArr) {
+        let count = 1;
+        let tempArr = []
+        let sortedArr = empObjArr.sort(function (a, b) {
+            var projA = a.projectId;
+            var projB = b.projectId;
+            if (projA < projB) {
+                return -1;
+            }
+            if (projA > projB) {
+                return 1;
+            }
+            return 0;
+        });
+
+        for (let i = 0; i < sortedArr.length; i = i + count) {
+            count = 1;
+            for (let j = i + 1; j < sortedArr.length; j++) {
+                if (sortedArr[i].projectId === sortedArr[j].projectId) {
+                    count++;
+                    // equal years
+                    if (sortedArr[i].dateFrom.getTime() === sortedArr[j].dateFrom.getTime() &&
+                        sortedArr[i].dateTo.getTime() === sortedArr[j].dateTo.getTime()) {
+                        let timeDiff = Math.abs(sortedArr[i].dateTo.getTime() - sortedArr[i].dateFrom.getTime());
+                        let diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                        tempArr.push({
+                            empId1: sortedArr[i].empId,
+                            empId2: sortedArr[j].empId,
+                            projId: sortedArr[i].projectId,
+                            daysWorked: diffDays
+                        });
+                    }
+
+                    // equal end year of one employee and start year of the another
+                    if (sortedArr[i].dateTo.getYear() === sortedArr[j].dateFrom.getYear()) {
+                        if (sortedArr[i].dateTo.getMonth() >= sortedArr[j].dateFrom.getMonth() &&
+                            sortedArr[i].dateTo.getDate() >= sortedArr[j].dateFrom.getDate()) {
+                            let timeDiff = Math.abs(sortedArr[i].dateTo.getTime() - sortedArr[j].dateFrom.getTime());
+                            let diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                            tempArr.push({
+                                empId1: sortedArr[i].empId,
+                                empId2: sortedArr[j].empId,
+                                projId: sortedArr[i].projectId,
+                                daysWorked: diffDays
+                            });
+                        }
+                    }
+
+                    // equal start year of one employee and end year of the another
+                    if (sortedArr[i].dateFrom.getYear() === sortedArr[j].dateTo.getYear()) {
+                        if (sortedArr[i].dateFrom.getMonth() <= sortedArr[j].dateTo.getMonth()) {
+                            let timeDiff = Math.abs(sortedArr[j].dateTo.getTime() - sortedArr[i].dateFrom.getTime());
+                            let diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                            tempArr.push({
+                                empId1: sortedArr[i].empId,
+                                empId2: sortedArr[j].empId,
+                                projId: sortedArr[i].projectId,
+                                daysWorked: diffDays
+                            });
+                        }
+                    }
+
+                    // one employee working period is within the another's period
+                    if ((sortedArr[i].dateFrom.getTime() > sortedArr[j].dateFrom.getTime() &&
+                        sortedArr[i].dateTo.getTime() < sortedArr[j].dateTo.getTime()) ||
+                        (sortedArr[i].dateFrom.getTime() < sortedArr[j].dateFrom.getTime() &&
+                            sortedArr[i].dateTo.getTime() > sortedArr[j].dateTo.getTime())) {
+                        let timeDiff = Math.abs(sortedArr[i].dateTo.getTime() - sortedArr[i].dateFrom.getTime());
+                        let diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                        tempArr.push({
+                            empId1: sortedArr[i].empId,
+                            empId2: sortedArr[j].empId,
+                            projId: sortedArr[i].projectId,
+                            daysWorked: diffDays
+                        });
+                    }
+
+                    //equal start/end years, different months/dates
+                    if (sortedArr[i].dateFrom.getYear() === sortedArr[j].dateFrom.getYear() &&
+                        sortedArr[i].dateTo.getYear() === sortedArr[j].dateTo.getYear()) {
+                        let timeDiff1 = Math.abs(sortedArr[i].dateTo.getTime() - sortedArr[i].dateFrom.getTime());
+                        let timeDiff2 = Math.abs(sortedArr[j].dateTo.getTime() - sortedArr[j].dateFrom.getTime());
+                        let diffDays = 0
+                        if (timeDiff1 < timeDiff2) {
+                            diffDays = Math.ceil(timeDiff1 / (1000 * 3600 * 24));
+                        } else if (timeDiff1 > timeDiff2) {
+                            diffDays = Math.ceil(timeDiff2 / (1000 * 3600 * 24));
+                        } else {
+                            diffDays = Math.ceil(timeDiff1 / (1000 * 3600 * 24));
+                        }
+
+                        tempArr.push({
+                            empId1: sortedArr[i].empId,
+                            empId2: sortedArr[j].empId,
+                            projId: sortedArr[i].projectId,
+                            daysWorked: diffDays
+                        });
+                    }
+                }
+            }
+            console.log(tempArr);
+        }
+
+        return tempArr.length ? getMaxPeriod(tempArr) : [];
+    }
+
+    function getMaxPeriod(data) {
+        return [].concat(data.reduce((max, obj) => {
+            return obj.daysWorked > max.daysWorked ? obj : max;
+        }));
+    }
+</script>
+
+</html>
